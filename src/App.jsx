@@ -163,13 +163,13 @@ function App() {
             <Route path="/" element={<Login />} />
             <Route path="/forgetpassword" element={<ForgetPassword />} />
 
-            <Route element={<ProtectedRoute />}>
+            {/* <Route element={<ProtectedRoute />}> */}
               <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
               <Route path="/setting" element={<Layout><Setting /></Layout>} />
               <Route path="/themesSetting" element={<Layout><SettingThemes /></Layout>} />
               <Route path="/tracker/job-posts" element={<Layout><Jobposts /></Layout>} />
               <Route path="/tracker/resumes" element={<Layout><Resume /></Layout>} />
-            </Route>
+            {/* </Route> */}
 
             <Route path="*" element={<NotFound />} />
           </Routes>
