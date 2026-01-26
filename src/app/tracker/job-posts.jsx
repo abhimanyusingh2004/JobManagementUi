@@ -1,5 +1,5 @@
 // components/job-titles/JobTitleManager.jsx
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react"; // ← Added useEffect
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -29,13 +29,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Loader2, Search } from "lucide-react";
+import { API_URL } from "@/lib/contant";
 
 export default function JobTitleManager() {
   const [newTitle, setNewTitle] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [loadingCreate, setLoadingCreate] = useState(false);
   const [jobTitles, setJobTitles] = useState([]);
-  const [loadingFetch, setLoadingFetch] = useState(false);
+  const [loadingFetch, setLoadingFetch] = useState(true); // Start as true to show loading initially
   const [togglingId, setTogglingId] = useState(null);
 
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -55,12 +56,12 @@ export default function JobTitleManager() {
   const fetchJobTitles = async () => {
     setLoadingFetch(true);
     try {
-      const res = await fetch("https://localhost:7245/api/JobTitle");
+      const res = await fetch(`${API_URL}/JobTitle`);
       const data = await res.json();
 
       if (data.status) {
         setJobTitles(data.data || []);
-        toast("Job titles refreshed successfully");
+        // Optional: only show toast on manual refresh if needed
       } else {
         toast.error(data.message || "Failed to fetch job titles");
       }
@@ -71,13 +72,18 @@ export default function JobTitleManager() {
     }
   };
 
+  // ← NEW: Fetch data automatically when component mounts
+  useEffect(() => {
+    fetchJobTitles();
+  }, []);
+
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
     setLoadingCreate(true);
     try {
-      const res = await fetch("https://localhost:7245/api/JobTitle", {
+      const res = await fetch(`${API_URL}/JobTitle`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -95,7 +101,7 @@ export default function JobTitleManager() {
       if (data.status) {
         toast.success(data.message || "Job title created successfully!");
         setNewTitle("");
-        await fetchJobTitles(); // Refresh list
+        await fetchJobTitles(); // Refresh list after create
       } else {
         toast.error(data.message || "Failed to create job title");
       }
@@ -118,7 +124,7 @@ export default function JobTitleManager() {
 
     try {
       const res = await fetch(
-        `https://localhost:7245/api/JobTitle/${id}?isActive=${!currentActive}`,
+        `${API_URL}/JobTitle/${id}?isActive=${!currentActive}`,
         { method: "DELETE" }
       );
 
@@ -144,9 +150,10 @@ export default function JobTitleManager() {
 
   return (
     <>
-      <div className="space-y-8 p-6 max-w-6xl mx-auto">
+      {/* ← Changed: Removed max-w-6xl, now takes full width */}
+      <div className="space-y-8 p-6 w-full">
         {/* Create Section */}
-        <Card>
+        <Card className="w-full">
           <CardHeader>
             <CardTitle>Enter a new job title</CardTitle>
           </CardHeader>
@@ -169,19 +176,14 @@ export default function JobTitleManager() {
         </Card>
 
         {/* View & Manage Section */}
-        <Card>
+        <Card className="w-full">
           <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <CardTitle>View all roles</CardTitle>
-                <CardDescription className="mt-2">
-                  Press on a job title button to toggle its status.
-                </CardDescription>
-              </div>
-              <Button onClick={fetchJobTitles} disabled={loadingFetch}>
-                {loadingFetch && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Get All
-              </Button>
+            {/* ← REMOVED: "Get All" button entirely */}
+            <div>
+              <CardTitle>View all roles</CardTitle>
+              <CardDescription className="mt-2">
+                Press on a job title button to toggle its status.
+              </CardDescription>
             </div>
           </CardHeader>
 
@@ -197,14 +199,17 @@ export default function JobTitleManager() {
               />
             </div>
 
-            {/* Scrollable Table */}
-            {filteredJobTitles.length > 0 ? (
+            {/* Table or Loading/Empty State */}
+            {loadingFetch ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <span className="ml-3 text-muted-foreground">Loading job titles...</span>
+              </div>
+            ) : filteredJobTitles.length > 0 ? (
               <div className="rounded-md border">
-                <div className="max-h-96 overflow-y-auto"> {/* ← This enables body-only scroll */}
+                <div className="max-h-96 overflow-y-auto">
                   <Table>
                     <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-                      {" "}
-                      {/* ← Header stays fixed */}
                       <TableRow>
                         <TableHead>ID</TableHead>
                         <TableHead>Job Title</TableHead>
@@ -269,7 +274,7 @@ export default function JobTitleManager() {
               <p className="text-center text-muted-foreground py-12">
                 {searchTerm
                   ? "No job titles match your search."
-                  : "No job titles loaded yet. Click 'Get All' to fetch them."}
+                  : "No job titles found."}
               </p>
             )}
           </CardContent>

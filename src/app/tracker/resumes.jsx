@@ -1,11 +1,8 @@
 // components/resume-upload/ResumeUploadManager.jsx
-import { useState, useEffect, useMemo } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useState, useEffect, useMemo } from "react"; // ← Added useMemo
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -21,163 +18,172 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input"; // ← Added Input
 import { toast } from "sonner";
-import { Loader2, Search, Upload, FileText } from "lucide-react";
+import { Loader2, ExternalLink, Download, Search } from "lucide-react";
+import { API_URL } from "@/lib/contant";
 
-const API_BASE = "https://localhost:7245/api";
 
-export default function Resume() {
-  const [activeJobs, setActiveJobs] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
+export default function ResumeUploadManager() {
+  const [resumes, setResumes] = useState([]);
+  const [searchTerm, setSearchTerm] = useState(""); // ← New state for search
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedJob, setSelectedJob] = useState(null);
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [uploading, setUploading] = useState(false);
+  const [selectedCV, setSelectedCV] = useState({ link: "", fileName: "" });
 
-  // Fetch active job titles
+  // Fetch all resumes on mount
   useEffect(() => {
-    const fetchActiveJobs = async () => {
+    const fetchResumes = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${API_BASE}/JobTitle/Active`);
+        const res = await fetch(`${API_URL}/JobAnalyst/get-all`);
         const data = await res.json();
-        if (data.status) {
-          setActiveJobs(data.data || []);
+
+        if (Array.isArray(data)) {
+          setResumes(data);
         } else {
-          toast.error("Failed to load active job posts");
+          toast.error("Unexpected response format");
+          setResumes([]);
         }
       } catch (err) {
-        toast.error("Network error – could not load job posts");
+        toast.error("Failed to load resumes");
+        console.error(err);
+        setResumes([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchActiveJobs();
+    fetchResumes();
   }, []);
 
-  // Filtered jobs based on search
-  const filteredJobs = useMemo(() => {
-    if (!searchTerm.trim()) return activeJobs;
-    return activeJobs.filter((job) =>
-      job.jobTitles.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [activeJobs, searchTerm]);
+  // Dynamic filtering based on search term
+  const filteredResumes = useMemo(() => {
+    if (!searchTerm.trim()) return resumes;
 
-  // Open dialog for selected job
-  const openUploadDialog = (job) => {
-    setSelectedJob(job);
-    setSelectedFiles([]);
+    const lowerSearch = searchTerm.toLowerCase();
+
+    return resumes.filter((resume) => {
+      return (
+        (resume.name || "").toLowerCase().includes(lowerSearch) ||
+        (resume.contact || "").toLowerCase().includes(lowerSearch) ||
+        (resume.profile || "").toLowerCase().includes(lowerSearch) ||
+        (resume.location || "").toLowerCase().includes(lowerSearch) ||
+        (resume.email || "").toLowerCase().includes(lowerSearch)
+      );
+    });
+  }, [resumes, searchTerm]);
+
+  // Open dialog with CV details
+  const openCVDialog = (cvLink, fileName) => {
+    setSelectedCV({ link: cvLink, fileName });
     setDialogOpen(true);
   };
 
-  // Handle file selection
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    setSelectedFiles(files);
+  // Preview CV in new tab
+  const handlePreview = () => {
+    window.open(selectedCV.link, "_blank", "noopener,noreferrer");
   };
 
-  // Upload resumes
-  const handleUpload = async () => {
-    if (selectedFiles.length === 0) {
-      toast.error("Please select at least one resume");
-      return;
-    }
-
-    setUploading(true);
-    const formData = new FormData();
-    selectedFiles.forEach((file) => {
-      formData.append("files", file);
-    });
-
+  // Trigger download
+  const handleDownload = async () => {
     try {
-      const res = await fetch(
-        `${API_BASE}/JobTitle/upload-resumes/${selectedJob.jobTitleId}`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      const response = await fetch(selectedCV.link);
+      if (!response.ok) throw new Error("Download failed");
 
-      const data = await res.json();
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = selectedCV.fileName || "resume.pdf";
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
 
-      if (data.status) {
-        toast.success(`${data.totalFiles} resume(s) uploaded successfully!`);
-        setDialogOpen(false);
-        setSelectedFiles([]);
-      } else {
-        toast.error(data.message || "Upload failed");
-      }
+      toast.success("Download started");
     } catch (err) {
-      toast.error("Failed to upload resumes");
-    } finally {
-      setUploading(false);
+      toast.error("Failed to download resume");
     }
   };
 
   return (
     <>
-      <div className="space-y-8 p-6 max-w-6xl mx-auto">
-        <Card>
+      <div className="p-6 w-full">
+        <Card className="w-full">
           <CardHeader>
-            <CardTitle className="text-2xl">Upload Resumes for Job Posts</CardTitle>
-            <CardDescription>
-              Select an active job post and upload candidate resumes
-            </CardDescription>
-          </CardHeader>
+            <CardTitle className="text-2xl">All Received Resumes</CardTitle>
 
-          <CardContent className="space-y-6">
-            {/* Search */}
-            <div className="relative max-w-md">
+            {/* Search Bar */}
+            <div className="relative max-w-lg mt-4">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
-                placeholder="Search job titles..."
+                placeholder="Search by name, contact, profile, location, or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
             </div>
+          </CardHeader>
 
-            {/* Scrollable Table */}
+          <CardContent>
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin mr-3" />
-                <span>Loading active job posts...</span>
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin mr-3" />
+                <span className="text-lg">Loading resumes...</span>
               </div>
-            ) : filteredJobs.length > 0 ? (
+            ) : filteredResumes.length > 0 ? (
               <div className="rounded-md border">
-                <div className="max-h-96 overflow-y-auto">
+                <div className="max-h-screen overflow-y-auto">
                   <Table>
                     <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                       <TableRow>
-                        <TableHead className="w-24">ID</TableHead>
-                        <TableHead>Job Title</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
+                        <TableHead className="w-48">Name</TableHead>
+                        <TableHead>Contact</TableHead>
+                        <TableHead>Profile</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Received Date</TableHead>
+                        <TableHead className="text-center">CV Link</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredJobs.map((job) => (
-                        <TableRow key={job.jobTitleId}>
-                          <TableCell className="font-mono text-sm">
-                            {job.jobTitleId}
+                      {filteredResumes.map((resume) => (
+                        <TableRow key={resume.id}>
+                          <TableCell className="font-medium max-w-xs truncate">
+                            {resume.name || "-"}
                           </TableCell>
-                          <TableCell className="font-medium">
-                            {job.jobTitles}
+                          <TableCell>{resume.contact || "-"}</TableCell>
+                          <TableCell className="max-w-xs truncate">
+                            {resume.profile || "-"}
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="max-w-xs truncate">
+                            {resume.location || "-"}
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate">
+                            {resume.email || "-"}
+                          </TableCell>
+                          <TableCell>
+                            {resume.receivedDate
+                              ? new Date(resume.receivedDate).toLocaleDateString()
+                              : "-"}
+                          </TableCell>
+                          <TableCell className="text-center">
                             <Button
                               size="sm"
-                              onClick={() => openUploadDialog(job)}
-                              className="gap-2"
+                              variant="outline"
+                              onClick={() =>
+                                openCVDialog(resume.cvLink, resume.fileName)
+                              }
+                              className="gap-1.5"
                             >
-                              <Upload className="h-4 w-4" />
-                              Post Resume
+                              <ExternalLink className="h-4 w-4" />
+                              View CV
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -187,79 +193,33 @@ export default function Resume() {
                 </div>
               </div>
             ) : (
-              <p className="text-center text-muted-foreground py-12">
+              <p className="text-center text-muted-foreground py-16">
                 {searchTerm
-                  ? "No active job posts match your search."
-                  : "No active job posts available."}
+                  ? "No resumes match your search."
+                  : "No resumes found."}
               </p>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Upload Dialog */}
+      {/* CV Preview/Download Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="inline-block sm:max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Upload Resumes</DialogTitle>
+            <DialogTitle>Resume Options</DialogTitle>
             <DialogDescription>
-              Upload one or more resumes for:{" "}
-              <strong>{selectedJob?.jobTitles || ""}</strong>
+              Choose an action for: <strong>{selectedCV.fileName || "Resume"}</strong>
             </DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="resumes">Select Resume Files</Label>
-              <Input
-                id="resumes"
-                type="file"
-                multiple
-                accept=".doc,.docx,.pdf"
-                onChange={handleFileChange}
-                className="cursor-pointer"
-              />
-            </div>
-
-            {selectedFiles.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  {selectedFiles.length} file(s) selected:
-                </p>
-                <div className="max-h-48 overflow-y-auto space-y-1">
-                  {selectedFiles.map((file, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2 text-sm bg-muted/50 px-3 py-2 rounded-md"
-                    >
-                      <FileText className="h-4 w-4 text-blue-600" />
-                      <span className="truncate">{file.name}</span>
-                      <span className="text-muted-foreground ml-auto">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
+          <DialogFooter className="gap-3 sm:gap-0">
+            <Button variant="outline" onClick={handlePreview} className="gap-2">
+              <ExternalLink className="h-4 w-4" />
+              Preview in New Tab
             </Button>
-            <Button onClick={handleUpload} disabled={uploading || selectedFiles.length === 0}>
-              {uploading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload Resumes
-                </>
-              )}
+            <Button onClick={handleDownload} className="gap-2">
+              <Download className="h-4 w-4" />
+              Download
             </Button>
           </DialogFooter>
         </DialogContent>

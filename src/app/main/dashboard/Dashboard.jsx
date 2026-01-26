@@ -22,8 +22,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-
-const API_BASE = 'https://localhost:7245/api/JobAnalyst';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
+import { API_URL } from '@/lib/contant';
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -38,7 +47,7 @@ const Dashboard = () => {
     year: 'N/A',
   });
 
-  const [jobTitles, setJobTitles] = useState([]);
+  const [jobTitleData, setJobTitleData] = useState([]); // For chart
   const [dateRangeData, setDateRangeData] = useState([]);
   const [fromDate, setFromDate] = useState('2025-12-01');
   const [toDate, setToDate] = useState('2025-12-31');
@@ -49,10 +58,10 @@ const Dashboard = () => {
     const fetchGeneralData = async () => {
       try {
         const [monthlyRes, weeklyRes, yearlyRes, jobTitleRes] = await Promise.all([
-          axios.get(`${API_BASE}/monthly-wise`),
-          axios.get(`${API_BASE}/weekly-wise`),
-          axios.get(`${API_BASE}/yearly-wise`),
-          axios.get(`${API_BASE}/jobtitle-wise`),
+          axios.get(`${API_URL}/JobAnalyst/monthly-wise`),
+          axios.get(`${API_URL}/JobAnalyst/weekly-wise`),
+          axios.get(`${API_URL}/JobAnalyst/yearly-wise`),
+          axios.get(`${API_URL}/JobAnalyst/jobtitle-wise`),
         ]);
 
         const monthly = monthlyRes.data.data?.[0]?.totalResumes || 0;
@@ -63,14 +72,18 @@ const Dashboard = () => {
         setStats({ monthly, weekly, yearly, total: yearly });
         setWeeklyInfo({ week: weeklyItem.week ?? 'N/A', year: weeklyItem.year ?? 'N/A' });
 
-        const jobData = (jobTitleRes.data.data || [])
-          .filter((item) => item.totalResumes > 0)
+        // Process job title data for chart
+        const chartData = (jobTitleRes.data.data || [])
+          .filter((item) => item.total > 0)
           .map((item) => ({
             jobTitle: item.jobTitle || 'Unknown',
-            totalResumes: item.totalResumes,
-          }));
+            total: item.total,
+            active: item.active,
+            inactive: item.inactive,
+          }))
+          .sort((a, b) => b.total - a.total); // Sort by total descending
 
-        setJobTitles(jobData);
+        setJobTitleData(chartData);
       } catch (error) {
         console.error('Error fetching general data:', error);
       } finally {
@@ -89,19 +102,18 @@ const Dashboard = () => {
 
     setTableLoading(true);
     try {
-      const res = await axios.get(`${API_BASE}/date-range-wise`, {
+      const res = await axios.get(`${API_URL}/JobAnalyst/date-range-wise`, {
         params: {
-          fromDate: `${fromDate}T12:00:00Z`,
-          toDate: `${toDate}T12:00:00Z`,
+          fromDate: `${fromDate}T00:00:00Z`,
+          toDate: `${toDate}T23:59:59Z`,
         },
       });
 
-      const data = res.data.data || [];
-      setDateRangeData(data);
+      setDateRangeData(res.data.data || []);
     } catch (error) {
       console.error('Error fetching date range:', error);
       setDateRangeData([]);
-      alert('Failed to load data. Check console.');
+      alert('Failed to load data.');
     } finally {
       setTableLoading(false);
     }
@@ -109,135 +121,175 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchDateRangeData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-6 md:p-10">
-      <div className="max-w-6xl mx-auto space-y-10">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold">Resume Analytics Dashboard</h1>
-          <p className="text-muted-foreground mt-3 text-lg">
-            Current as of December 22, 2025
-          </p>
-        </div>
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="w-full space-y-10 p-6 md:p-10">
+        {/* Header */}
+    
 
-        {/* Key Number Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+        {/* Stats Cards - Wide & Short */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {loading ? (
             [...Array(4)].map((_, i) => (
-              <Card key={i}>
-                <CardHeader><Skeleton className="h-6 w-32 mx-auto" /></CardHeader>
-                <CardContent className="text-center"><Skeleton className="h-16 w-32 mx-auto" /></CardContent>
+              <Card key={i} className="p-6">
+                <Skeleton className="h-5 w-24 mb-3" />
+                <Skeleton className="h-12 w-32" />
               </Card>
             ))
           ) : (
             <>
-              <Card className="hover:shadow-lg transition-shadow">
-                <CardHeader className="text-center">
-                  <CardTitle className="text-xl">This Month</CardTitle>
-                  <Badge variant="secondary" className="mt-2">December 2025</Badge>
+              <Card className="p-6 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                    This Month
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="text-center">
-                  <div className="text-5xl font-bold text-blue-600 dark:text-blue-400">
+                <CardContent>
+                  <div className="text-4xl font-bold text-blue-700 dark:text-blue-400">
                     {stats.monthly}
                   </div>
-                  <p className="text-muted-foreground mt-3">Resumes Received</p>
+                  <p className="text-xs text-muted-foreground mt-1">Resumes received</p>
                 </CardContent>
               </Card>
 
-              <Card className="hover:shadow-lg transition-shadow">
-                <CardHeader className="text-center">
-                  <CardTitle className="text-xl">This Week</CardTitle>
-                  <Badge variant="secondary" className="mt-2">
-                    Week {weeklyInfo.week} • {weeklyInfo.year}
+              <Card className="p-6 bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-green-700 dark:text-green-400">
+                    This Week
+                  </CardTitle>
+                  <Badge variant="secondary" className="w-fit text-xs">
+                    W{weeklyInfo.week} • {weeklyInfo.year}
                   </Badge>
                 </CardHeader>
-                <CardContent className="text-center">
-                  <div className="text-5xl font-bold text-green-600 dark:text-green-400">
+                <CardContent>
+                  <div className="text-4xl font-bold text-green-700 dark:text-green-400">
                     {stats.weekly}
                   </div>
-                  <p className="text-muted-foreground mt-3">Resumes Received</p>
+                  <p className="text-xs text-muted-foreground mt-1">Resumes received</p>
                 </CardContent>
               </Card>
 
-              <Card className="hover:shadow-lg transition-shadow">
-                <CardHeader className="text-center">
-                  <CardTitle className="text-xl">This Year</CardTitle>
-                  <Badge variant="secondary" className="mt-2">2025</Badge>
+              <Card className="p-6 bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-400">
+                    This Year
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="text-center">
-                  <div className="text-5xl font-bold text-purple-600 dark:text-purple-400">
+                <CardContent>
+                  <div className="text-4xl font-bold text-purple-700 dark:text-purple-400">
                     {stats.yearly}
                   </div>
-                  <p className="text-muted-foreground mt-3">Total Resumes</p>
+                  <p className="text-xs text-muted-foreground mt-1">Total resumes</p>
                 </CardContent>
               </Card>
 
-              <Card className="hover:shadow-lg transition-shadow">
-                <CardHeader className="text-center">
-                  <CardTitle className="text-xl">All Time</CardTitle>
-                  <Badge variant="outline" className="mt-2">Total</Badge>
+              <Card className="p-6 bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-400">
+                    All Time
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="text-center">
-                  <div className="text-5xl font-bold text-orange-600 dark:text-orange-400">
+                <CardContent>
+                  <div className="text-4xl font-bold text-orange-700 dark:text-orange-400">
                     {stats.total}
                   </div>
-                  <p className="text-muted-foreground mt-3">Across All Jobs</p>
+                  <p className="text-xs text-muted-foreground mt-1">Across all positions</p>
                 </CardContent>
               </Card>
             </>
           )}
         </div>
 
-        {/* Job Titles List */}
-        <Card>
+        {/* Job Title Distribution Chart */}
+        <Card className="p-6">
           <CardHeader>
-            <CardTitle className="text-2xl text-center">Resumes by Job Title</CardTitle>
+            <CardTitle className="text-2xl">Resumes by Job Title</CardTitle>
+            <CardDescription>
+              Distribution of applications across active job openings
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[...Array(3)].map((_, i) => (
-                  <Skeleton key={i} className="h-32" />
-                ))}
-              </div>
-            ) : jobTitles.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {jobTitles.map((job, i) => (
-                  <div
-                    key={i}
-                    className="text-center p-6 bg-card border rounded-lg shadow-sm hover:shadow-md transition-shadow"
+              <Skeleton className="h-96 w-full rounded-lg" />
+            ) : jobTitleData.length > 0 ? (
+              <div className="h-[500px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart 
+                    data={jobTitleData} 
+                    margin={{ top: 20, right: 30, left: 20, bottom: 100 }}
+                    barGap={8}
                   >
-                    <p className="text-xl font-semibold">{job.jobTitle}</p>
-                    <p className="text-5xl font-bold text-primary mt-4">
-                      {job.totalResumes}
-                    </p>
-                    <p className="text-muted-foreground mt-2">applications</p>
-                  </div>
-                ))}
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.5} />
+                    <XAxis
+                      dataKey="jobTitle"
+                      angle={-45}
+                      textAnchor="end"
+                      height={100}
+                      interval={0}
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 12, fill: '#6b7280' }}
+                      label={{ value: 'Number of Resumes', angle: -90, position: 'insideLeft', style: { fontSize: 12, fill: '#6b7280' } }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'white',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                      }}
+                      cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
+                    />
+                    <Legend 
+                      wrapperStyle={{ paddingTop: '20px' }}
+                      iconType="rect"
+                    />
+                    <Bar 
+                      dataKey="total" 
+                      fill="#3b82f6" 
+                      name="Total Resumes" 
+                      radius={[8, 8, 0, 0]}
+                      maxBarSize={80}
+                    />
+                    <Bar 
+                      dataKey="active" 
+                      fill="#10b981" 
+                      name="Active" 
+                      radius={[8, 8, 0, 0]}
+                      maxBarSize={80}
+                    />
+                    <Bar 
+                      dataKey="inactive" 
+                      fill="#ef4444" 
+                      name="Inactive" 
+                      radius={[8, 8, 0, 0]}
+                      maxBarSize={80}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-center text-muted-foreground py-10">
+              <p className="text-center text-muted-foreground py-16">
                 No job title data available
               </p>
             )}
           </CardContent>
         </Card>
 
-        {/* Date Range Section */}
-        <Card>
+        {/* Date Range Table */}
+        <Card className="p-6">
           <CardHeader>
-            <CardTitle className="text-2xl text-center">
-              Resumes by Job Title (Date Range)
-            </CardTitle>
-            <CardDescription className="text-center">
-              Select a date range to filter by job title
+            <CardTitle className="text-2xl">Custom Date Range Analysis</CardTitle>
+            <CardDescription>
+              View resume count per job title in a selected period
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex flex-col md:flex-row gap-6 items-end justify-center">
-              <div>
+            <div className="flex flex-col md:flex-row gap-4 items-end justify-center max-w-2xl mx-auto">
+              <div className="flex-1">
                 <Label htmlFor="from">From Date</Label>
                 <Input
                   id="from"
@@ -246,7 +298,7 @@ const Dashboard = () => {
                   onChange={(e) => setFromDate(e.target.value)}
                 />
               </div>
-              <div>
+              <div className="flex-1">
                 <Label htmlFor="to">To Date</Label>
                 <Input
                   id="to"
@@ -256,25 +308,25 @@ const Dashboard = () => {
                 />
               </div>
               <Button onClick={fetchDateRangeData} disabled={tableLoading}>
-                {tableLoading ? 'Loading...' : 'Load Data'}
+                {tableLoading ? 'Loading...' : 'Apply Filter'}
               </Button>
             </div>
 
             {tableLoading ? (
-              <Skeleton className="h-64 w-full" />
+              <Skeleton className="h-64 w-full rounded-lg" />
             ) : dateRangeData.length > 0 ? (
-              <div className="border rounded-lg overflow-hidden">
+              <div className="rounded-lg border overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Job Title</TableHead>
-                      <TableHead className="text-right">Total Resumes</TableHead>
+                      <TableHead className="text-right">Resumes Received</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {dateRangeData.map((item, i) => (
                       <TableRow key={i}>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium capitalize">
                           {item.jobTitle || 'Unknown'}
                         </TableCell>
                         <TableCell className="text-right font-bold text-lg">
@@ -287,14 +339,14 @@ const Dashboard = () => {
               </div>
             ) : (
               <p className="text-center text-muted-foreground py-12">
-                No resumes found in the selected date range.
+                No data found for the selected date range.
               </p>
             )}
           </CardContent>
         </Card>
 
-        <footer className="text-center text-muted-foreground py-6">
-          Last updated: {new Date().toLocaleString()}
+        <footer className="text-center text-sm text-muted-foreground py-8">
+          Resume Analytics • Powered by JobAnalyst API
         </footer>
       </div>
     </div>
