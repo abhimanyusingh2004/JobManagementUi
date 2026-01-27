@@ -12,7 +12,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Table,
@@ -23,16 +22,29 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import {
   BarChart,
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
 } from 'recharts';
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '@/components/ui/chart';
 import { API_URL } from '@/lib/contant';
+import { cn } from '@/lib/utils';
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -49,13 +61,14 @@ const Dashboard = () => {
 
   const [jobTitleData, setJobTitleData] = useState([]); // For chart
   const [dateRangeData, setDateRangeData] = useState([]);
-  const [fromDate, setFromDate] = useState('2025-12-01');
-  const [toDate, setToDate] = useState('2025-12-31');
+  const [fromDate, setFromDate] = useState(new Date(2025, 11, 1));
+  const [toDate, setToDate] = useState(new Date(2025, 11, 31));
   const [loading, setLoading] = useState(true);
   const [tableLoading, setTableLoading] = useState(false);
 
   useEffect(() => {
     const fetchGeneralData = async () => {
+      console.log('Fetching general dashboard data...');
       try {
         const [monthlyRes, weeklyRes, yearlyRes, jobTitleRes] = await Promise.all([
           axios.get(`${API_URL}/JobAnalyst/monthly-wise`),
@@ -102,10 +115,13 @@ const Dashboard = () => {
 
     setTableLoading(true);
     try {
+      const fromDateStr = format(fromDate, 'yyyy-MM-dd');
+      const toDateStr = format(toDate, 'yyyy-MM-dd');
+      
       const res = await axios.get(`${API_URL}/JobAnalyst/date-range-wise`, {
         params: {
-          fromDate: `${fromDate}T00:00:00Z`,
-          toDate: `${toDate}T23:59:59Z`,
+          fromDate: `${fromDateStr}T00:00:00Z`,
+          toDate: `${toDateStr}T23:59:59Z`,
         },
       });
 
@@ -214,63 +230,67 @@ const Dashboard = () => {
             {loading ? (
               <Skeleton className="h-96 w-full rounded-lg" />
             ) : jobTitleData.length > 0 ? (
-              <div className="h-[500px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart 
-                    data={jobTitleData} 
-                    margin={{ top: 20, right: 30, left: 20, bottom: 100 }}
-                    barGap={8}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.5} />
-                    <XAxis
-                      dataKey="jobTitle"
-                      angle={-45}
-                      textAnchor="end"
-                      height={100}
-                      interval={0}
-                      tick={{ fontSize: 11, fill: '#6b7280' }}
-                    />
-                    <YAxis 
-                      tick={{ fontSize: 12, fill: '#6b7280' }}
-                      label={{ value: 'Number of Resumes', angle: -90, position: 'insideLeft', style: { fontSize: 12, fill: '#6b7280' } }}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'white',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '8px',
-                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                      }}
-                      cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
-                    />
-                    <Legend 
-                      wrapperStyle={{ paddingTop: '20px' }}
-                      iconType="rect"
-                    />
-                    <Bar 
-                      dataKey="total" 
-                      fill="#3b82f6" 
-                      name="Total Resumes" 
-                      radius={[8, 8, 0, 0]}
-                      maxBarSize={80}
-                    />
-                    <Bar 
-                      dataKey="active" 
-                      fill="#10b981" 
-                      name="Active" 
-                      radius={[8, 8, 0, 0]}
-                      maxBarSize={80}
-                    />
-                    <Bar 
-                      dataKey="inactive" 
-                      fill="#ef4444" 
-                      name="Inactive" 
-                      radius={[8, 8, 0, 0]}
-                      maxBarSize={80}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              <ChartContainer
+                config={{
+                  total: {
+                    label: "Total Resumes",
+                    color: "hsl(217, 91%, 60%)",
+                  },
+                  active: {
+                    label: "Active",
+                    color: "hsl(142, 76%, 36%)",
+                  },
+                  inactive: {
+                    label: "Inactive",
+                    color: "hsl(0, 84%, 60%)",
+                  },
+                }}
+                className="h-[500px] w-full"
+              >
+                <BarChart 
+                  data={jobTitleData} 
+                  margin={{ top: 20, right: 30, left: 20, bottom: 100 }}
+                  barGap={4}
+                  barCategoryGap="15%"
+                >
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.3} />
+                  <XAxis
+                    dataKey="jobTitle"
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                    interval={0}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 11 }}
+                  />
+                  <YAxis 
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 12 }}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <Bar 
+                    dataKey="total" 
+                    fill="var(--color-total)" 
+                    radius={[6, 6, 0, 0]}
+                    maxBarSize={50}
+                  />
+                  <Bar 
+                    dataKey="active" 
+                    fill="var(--color-active)" 
+                    radius={[6, 6, 0, 0]}
+                    maxBarSize={50}
+                  />
+                  <Bar 
+                    dataKey="inactive" 
+                    fill="var(--color-inactive)" 
+                    radius={[6, 6, 0, 0]}
+                    maxBarSize={50}
+                  />
+                </BarChart>
+              </ChartContainer>
             ) : (
               <p className="text-center text-muted-foreground py-16">
                 No job title data available
@@ -290,22 +310,56 @@ const Dashboard = () => {
           <CardContent className="space-y-6">
             <div className="flex flex-col md:flex-row gap-4 items-end justify-center max-w-2xl mx-auto">
               <div className="flex-1">
-                <Label htmlFor="from">From Date</Label>
-                <Input
-                  id="from"
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                />
+                <Label htmlFor="from" className="mb-2">From Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="from"
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal mt-1',
+                        !fromDate && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {fromDate ? format(fromDate, 'PPP') : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={fromDate}
+                      onSelect={(date) => date && setFromDate(date)}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="flex-1">
-                <Label htmlFor="to">To Date</Label>
-                <Input
-                  id="to"
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                />
+                <Label htmlFor="to" className="mb-2">To Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="to"
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal mt-1',
+                        !toDate && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {toDate ? format(toDate, 'PPP') : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={toDate}
+                      onSelect={(date) => date && setToDate(date)}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <Button onClick={fetchDateRangeData} disabled={tableLoading}>
                 {tableLoading ? 'Loading...' : 'Apply Filter'}

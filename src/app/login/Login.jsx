@@ -58,6 +58,7 @@ function Login() {
 
       // SUCCESS: Save login status
       localStorage.setItem("adminLoggedIn", "true");
+      console.log("Admin login successful");
 
       toast.success(data.message || "Admin login successful!", {
         position: "top-right",

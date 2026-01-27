@@ -81,6 +81,7 @@ import { Navigate, Outlet } from "react-router-dom";
 
 const ProtectedRoute = () => {
   const isLoggedIn = localStorage.getItem("adminLoggedIn") === "true";
+  console.log("ProtectedRoute - isLoggedIn:");
 
   if (!isLoggedIn) {
     // Redirect to login if not authenticated

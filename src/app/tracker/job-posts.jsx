@@ -1,5 +1,4 @@
-// components/job-titles/JobTitleManager.jsx
-import { useState, useMemo, useEffect } from "react"; // ← Added useEffect
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -36,7 +35,7 @@ export default function JobTitleManager() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loadingCreate, setLoadingCreate] = useState(false);
   const [jobTitles, setJobTitles] = useState([]);
-  const [loadingFetch, setLoadingFetch] = useState(true); // Start as true to show loading initially
+  const [loadingFetch, setLoadingFetch] = useState(true);
   const [togglingId, setTogglingId] = useState(null);
 
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -61,7 +60,6 @@ export default function JobTitleManager() {
 
       if (data.status) {
         setJobTitles(data.data || []);
-        // Optional: only show toast on manual refresh if needed
       } else {
         toast.error(data.message || "Failed to fetch job titles");
       }
@@ -72,7 +70,6 @@ export default function JobTitleManager() {
     }
   };
 
-  // ← NEW: Fetch data automatically when component mounts
   useEffect(() => {
     fetchJobTitles();
   }, []);
@@ -101,7 +98,7 @@ export default function JobTitleManager() {
       if (data.status) {
         toast.success(data.message || "Job title created successfully!");
         setNewTitle("");
-        await fetchJobTitles(); // Refresh list after create
+        await fetchJobTitles();
       } else {
         toast.error(data.message || "Failed to create job title");
       }
@@ -150,7 +147,6 @@ export default function JobTitleManager() {
 
   return (
     <>
-      {/* ← Changed: Removed max-w-6xl, now takes full width */}
       <div className="space-y-8 p-6 w-full">
         {/* Create Section */}
         <Card className="w-full">
@@ -178,11 +174,10 @@ export default function JobTitleManager() {
         {/* View & Manage Section */}
         <Card className="w-full">
           <CardHeader>
-            {/* ← REMOVED: "Get All" button entirely */}
             <div>
               <CardTitle>View all roles</CardTitle>
               <CardDescription className="mt-2">
-                Press on a job title button to toggle its status.
+                Use the toggle button in the status column to activate or deactivate job titles.
               </CardDescription>
             </div>
           </CardHeader>
@@ -211,7 +206,6 @@ export default function JobTitleManager() {
                   <Table>
                     <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                       <TableRow>
-                        <TableHead>ID</TableHead>
                         <TableHead>Job Title</TableHead>
                         <TableHead>Description</TableHead>
                         <TableHead>Status</TableHead>
@@ -222,41 +216,28 @@ export default function JobTitleManager() {
                     <TableBody>
                       {filteredJobTitles.map((job) => (
                         <TableRow key={job.jobTitleId}>
-                          <TableCell className="font-mono text-sm">
-                            {job.jobTitleId}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant={job.isActive ? "default" : "destructive"}
-                              size="sm"
-                              onClick={() =>
-                                openConfirmDialog(job.jobTitleId, job.isActive, job.jobTitles)
-                              }
-                              disabled={togglingId !== null}
-                              className={
-                                job.isActive
-                                  ? "bg-green-600 hover:bg-green-700"
-                                  : "bg-red-600 hover:bg-red-700"
-                              }
-                            >
-                              {togglingId === job.jobTitleId ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                job.jobTitles
-                              )}
-                            </Button>
+                          <TableCell className="font-medium">
+                            {job.jobTitles}
                           </TableCell>
                           <TableCell>{job.description || "-"}</TableCell>
                           <TableCell>
-                            <span
-                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                job.isActive
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-red-100 text-red-800"
-                              }`}
-                            >
-                              {job.isActive ? "Active" : "Inactive"}
-                            </span>
+                            <div className="flex items-center gap-3">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  openConfirmDialog(job.jobTitleId, job.isActive, job.jobTitles)
+                                }
+                                disabled={togglingId !== null}
+                                className="h-7"
+                              >
+                                {togglingId === job.jobTitleId ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  job.isActive ? "Deactivate" : "Activate"
+                                )}
+                              </Button>
+                            </div>
                           </TableCell>
                           <TableCell className="text-sm">
                             {new Date(job.createdAt).toLocaleDateString()}
