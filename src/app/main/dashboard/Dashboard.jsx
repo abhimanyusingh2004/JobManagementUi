@@ -399,10 +399,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <footer className="text-center text-sm text-muted-foreground py-8">
-          Resume Analytics • Powered by JobAnalyst API
-        </footer>
-      </div>
+\      </div>
     </div>
   );
 };
